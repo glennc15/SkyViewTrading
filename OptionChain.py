@@ -19,60 +19,78 @@ class OptionChain(object):
 		# each entry in option_chains has the following structure:
 		# {expiration:
 		#	 {
-		# 		'calls': pandas dataframe of call option chains
-		# 		'puts' : pandas dataframe of put option chains
+		# 		'calls': list of Option objects
+		# 		'puts' : list of Option object
 		# 	 } 
 		# }
 		#
 		# expiration is a datetime object representing the option expiration date
 		self.option_chains = {}
 
-	def add_option_chains(self, expiration, calls, puts):
-		assert(isinstance(expiration, datetime.datetime))
-		assert(isinstance(calls, pd.DataFrame))
-		assert(isinstance(puts, pd.DataFrame))
+	def add_call_option(self, expiration, option_obj):
+		if expiration in self.option_chains.keys():
+			self.option_chains[expiration]['calls'].append(option_obj)
+		else:
+			self.option_chains[expiration] = {
+				'calls': [option_obj],
+				'puts': []
+			}
+
+	def add_put_option(self, expiration, option_obj):
+		if expiration in self.option_chains.keys():
+			self.option_chains[expiration]['puts'].append(option_obj)
+		else:
+			self.option_chains[expiration] = {
+				'calls': [],
+				'puts': [option_obj]
+			}
+
+	# def add_option_chains(self, expiration, calls, puts):
+	# 	assert(isinstance(expiration, datetime.datetime))
+	# 	assert(isinstance(calls, pd.DataFrame))
+	# 	assert(isinstance(puts, pd.DataFrame))
 		
-		new_chains = {'calls': calls, 'puts': puts}
-		self.option_chains[expiration] = new_chains
+	# 	new_chains = {'calls': calls, 'puts': puts}
+	# 	self.option_chains[expiration] = new_chains
 
-	def remove_options_after(self, days=None, date=None):
-		if days:
-			cutoff_date = self.days_to_date(days)
-			self.remove_options_after(date=cutoff_date)
-		else:
-			cutoff_date = date
+	# def remove_options_after(self, days=None, date=None):
+	# 	if days:
+	# 		cutoff_date = self.days_to_date(days)
+	# 		self.remove_options_after(date=cutoff_date)
+	# 	else:
+	# 		cutoff_date = date
 
-			# in Python3 have to convert the keys to a list as .keys() returns an iterator.
-			for expiration in list(self.option_chains.keys()):
-				if expiration > cutoff_date:
-					del self.option_chains[expiration]
+	# 		# in Python3 have to convert the keys to a list as .keys() returns an iterator.
+	# 		for expiration in list(self.option_chains.keys()):
+	# 			if expiration > cutoff_date:
+	# 				del self.option_chains[expiration]
 
-		return self
+	# 	return self
 
-	def remove_options_before(self, days=None, date=None):
-		if days:
-			cutoff_date = self.days_to_date(days)
-			self.remove_options_before(date=cutoff_date)
-		else:
-			cutoff_date = date
+	# def remove_options_before(self, days=None, date=None):
+	# 	if days:
+	# 		cutoff_date = self.days_to_date(days)
+	# 		self.remove_options_before(date=cutoff_date)
+	# 	else:
+	# 		cutoff_date = date
 
-			# in Python3 have to convert the keys to a list as .keys() returns an iterator.
-			for expiration in list(self.option_chains.keys()):
-				if expiration < cutoff_date:
-					del self.option_chains[expiration]
+	# 		# in Python3 have to convert the keys to a list as .keys() returns an iterator.
+	# 		for expiration in list(self.option_chains.keys()):
+	# 			if expiration < cutoff_date:
+	# 				del self.option_chains[expiration]
 
-		return self
+	# 	return self
 
-	def set_exchange(self):
-		'''
-		2018-07-22: currently only keeps the exchanges that are set to None
+	# def set_exchange(self):
+	# 	'''
+	# 	2018-07-22: currently only keeps the exchanges that are set to None
 
-		'''
-		for k,v in self.option_chains.items():
-			self.option_chains[k]['calls'] = v['calls'][v['calls']['Exchange'].isnull()]
-			self.option_chains[k]['puts'] = v['puts'][v['puts']['Exchange'].isnull()]
+	# 	'''
+	# 	for k,v in self.option_chains.items():
+	# 		self.option_chains[k]['calls'] = v['calls'][v['calls']['Exchange'].isnull()]
+	# 		self.option_chains[k]['puts'] = v['puts'][v['puts']['Exchange'].isnull()]
 
-		return self
+	# 	return self
 
 	def items(self):
 		'''
@@ -99,24 +117,28 @@ class OptionChain(object):
 		self.risk_free_rate = risk_free_rate
 
 		for k,v in self.option_chains.items():
-			v['calls']['Sigma'] = v['calls'].apply(lambda x: self.iv(x, self.underlying_spot, self.timestamp, k, 'c'), axis=1)
-			v['calls']['Delta'] = v['calls'].apply(lambda x: self.delta(x, self.underlying_spot, self.timestamp, k, 'c'), axis=1)
-			v['calls']['Gamma'] = v['calls'].apply(lambda x: self.gamma(x, self.underlying_spot, self.timestamp, k, 'c'), axis=1)
-			v['calls']['Theta'] = v['calls'].apply(lambda x: self.theta(x, self.underlying_spot, self.timestamp, k, 'c'), axis=1)
-			v['calls']['Vega'] = v['calls'].apply(lambda x: self.vega(x, self.underlying_spot, self.timestamp, k, 'c'), axis=1)
+			for call in v['calls']:
+				call.sigma = self.iv(call, self.underlying_spot, self.timestamp, k, 'c')
+				call.delta = self.delta(call, self.underlying_spot, self.timestamp, k, 'c')
+				call.gamma = self.gamma(call, self.underlying_spot, self.timestamp, k, 'c')
+				call.theta = self.theta(call, self.underlying_spot, self.timestamp, k, 'c')
+				call.vega = self.vega(call, self.underlying_spot, self.timestamp, k, 'c')
 
-			v['puts']['Sigma'] = v['puts'].apply(lambda x: self.iv(x, self.underlying_spot, self.timestamp, k, 'p'), axis=1)
-			v['puts']['Delta'] = v['puts'].apply(lambda x: self.delta(x, self.underlying_spot, self.timestamp, k, 'p'), axis=1)
-			v['puts']['Gamma'] = v['puts'].apply(lambda x: self.gamma(x, self.underlying_spot, self.timestamp, k, 'p'), axis=1)
-			v['puts']['Theta'] = v['puts'].apply(lambda x: self.theta(x, self.underlying_spot, self.timestamp, k, 'p'), axis=1)
-			v['puts']['Vega'] = v['puts'].apply(lambda x: self.vega(x, self.underlying_spot, self.timestamp, k, 'p'), axis=1)
+		for k,v in self.option_chains.items():
+			for put in v['puts']:
+				put.sigma = self.iv(put, self.underlying_spot, self.timestamp, k, 'p')
+				put.delta = self.delta(put, self.underlying_spot, self.timestamp, k, 'p')
+				put.gamma = self.gamma(put, self.underlying_spot, self.timestamp, k, 'p')
+				put.theta = self.theta(put, self.underlying_spot, self.timestamp, k, 'p')
+				put.vega = self.vega(put, self.underlying_spot, self.timestamp, k, 'p')
+			
 
 		return self
 
-	def iv(self, option_chain_data, asset_price, timestamp, expiration, call_put_flag):
-		discounted_option_price = self.option_price(ask=option_chain_data['Ask'], bid=option_chain_data["Bid"])
+	def iv(self, option_obj, asset_price, timestamp, expiration, call_put_flag):
+		discounted_option_price = self.option_price(ask=option_obj.ask, bid=option_obj.bid)
 		F = asset_price
-		K = option_chain_data["Strike"]
+		K = option_obj.strike
 		r = self.risk_free_rate
 		t = self.time_2_expiration(timestamp, expiration)  
 		flag = call_put_flag 
@@ -129,49 +151,49 @@ class OptionChain(object):
 
 		return iv
 
-	def delta(self, option_chain_data, asset_price, timestamp, expiration, call_put_flag):
+	def delta(self, option_obj, asset_price, timestamp, expiration, call_put_flag):
 		flag = call_put_flag 
 		S = asset_price
-		K = option_chain_data["Strike"]  
+		K = option_obj.strike 
 		t = self.time_2_expiration(timestamp, expiration)  
 		r = self.risk_free_rate  
-		sigma = option_chain_data["Sigma"]  
+		sigma = option_obj.sigma  
 
 		delta = vollib_greeks.delta(flag, S, K, t, r, sigma)
 
 		return delta
 
-	def gamma(self, option_chain_data, asset_price, timestamp, expiration, call_put_flag):
+	def gamma(self, option_obj, asset_price, timestamp, expiration, call_put_flag):
 		flag = call_put_flag 
 		S = asset_price
-		K = option_chain_data["Strike"]  
+		K = option_obj.strike 
 		t = self.time_2_expiration(timestamp, expiration)  
 		r = self.risk_free_rate  
-		sigma = option_chain_data["Sigma"]  
+		sigma = option_obj.sigma  
 
 		gamma = vollib_greeks.gamma(flag, S, K, t, r, sigma)
 
 		return gamma
 
-	def theta(self, option_chain_data, asset_price, timestamp, expiration, call_put_flag):
+	def theta(self, option_obj, asset_price, timestamp, expiration, call_put_flag):
 		flag = call_put_flag 
 		S = asset_price
-		K = option_chain_data["Strike"]  
+		K = option_obj.strike 
 		t = self.time_2_expiration(timestamp, expiration)  
 		r = self.risk_free_rate  
-		sigma = option_chain_data["Sigma"]  
+		sigma = option_obj.sigma  
 
 		theta = vollib_greeks.theta(flag, S, K, t, r, sigma)
 
 		return theta
 
-	def vega(self, option_chain_data, asset_price, timestamp, expiration, call_put_flag):
+	def vega(self, option_obj, asset_price, timestamp, expiration, call_put_flag):
 		flag = call_put_flag 
 		S = asset_price
-		K = option_chain_data["Strike"]  
+		K = option_obj.strike 
 		t = self.time_2_expiration(timestamp, expiration)  
 		r = self.risk_free_rate  
-		sigma = option_chain_data["Sigma"]  
+		sigma = option_obj.sigma  
 
 		vega = vollib_greeks.vega(flag, S, K, t, r, sigma)
 

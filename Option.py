@@ -18,6 +18,7 @@ class Option(object):
     self.description = description
     self.exchange = exchange
 
+    self.sigma = None
     self.delta = None
     self.gamma = None
     self.vega = None
@@ -45,7 +46,7 @@ class Option(object):
   def payouts(self, spots):
     return self.payout_method(self, spots) 
 
-  def self.valid_option(self):
+  def valid(self):
     bid_ok = False
     ask_ok = False
     bid_ask_ok = False
