@@ -242,7 +242,7 @@ class VerticalSpreads(object):
 
 		option_matrix['Max Profit'] = option_matrix['K1_Entry'] + option_matrix["K2_Entry"]
 		option_matrix['Max Risk'] = (option_matrix["K1_Strike"] - option_matrix["K2_Strike"]) + option_matrix['Max Profit']
-		option_matrix['Break Even'] = option_matrix["K1_Strike"] + option_matrix['Max Profit']
+		option_matrix['Break Even'] = option_matrix["K2_Strike"] - option_matrix['Max Profit']
 		
 		option_matrix['Delta'] = -1*option_matrix['K2_Delta'] + 1*option_matrix['K1_Delta']
 		option_matrix['Gamma'] = -1*option_matrix['K2_Gamma'] + 1*option_matrix['K1_Gamma']

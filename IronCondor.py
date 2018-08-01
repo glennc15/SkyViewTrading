@@ -67,8 +67,8 @@ class IronCondor:
 		self.strike_display = "{}/{}/{}/{}".format(self.K1_Strike, self.K2_Strike, self.K3_Strike, self.K4_Strike)
 		self.max_profit = self.K1_Entry + self.K2_Entry + self.K3_Entry + self.K4_Entry
 		self.max_risk = self.get_max_risk()
-		self.put_break_even = self.get_break_even(strike_diff=(self.K2_Strike-self.K1_Strike), low_strike=self.K1_Strike)
-		self.call_break_even = self.get_break_even(strike_diff=(self.K4_Strike-self.K3_Strike), low_strike=self.K3_Strike)
+		self.put_break_even = self.get_put_break_even(strike_diff=(self.K2_Strike-self.K1_Strike), K2_strike=self.K2_Strike)
+		self.call_break_even = self.get_call_break_even(strike_diff=(self.K4_Strike-self.K3_Strike), K3_strike=self.K3_Strike)
 		self.delta = self.K1_Delta + self.K2_Delta + self.K3_Delta + self.K4_Delta
 		self.gamma = self.K1_Gamma + self.K2_Gamma + self.K3_Gamma + self.K4_Gamma
 		self.theta = self.K1_Theta + self.K2_Theta + self.K3_Theta + self.K4_Theta
@@ -93,12 +93,21 @@ class IronCondor:
 			
 		return max_risk
 	
-	def get_break_even(self, strike_diff, low_strike):
+	def get_put_break_even(self, strike_diff, K2_strike):
 		# check for a broken wing condor:
 		if self.max_profit > strike_diff:
 			break_even = None
 		else:
-			break_even = low_strike + self.max_profit
+			break_even = K2_strike - self.max_profit
+			
+		return break_even
+
+	def get_call_break_even(self, strike_diff, K3_strike):
+		# check for a broken wing condor:
+		if self.max_profit > strike_diff:
+			break_even = None
+		else:
+			break_even = K3_strike + self.max_profit
 			
 		return break_even
 			

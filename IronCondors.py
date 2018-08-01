@@ -28,15 +28,15 @@ class IronCondors(VerticalSpreads.VerticalSpreads):
 			print("There are {:,} bull put spreads".format(bull_puts.shape[0]))
 			print("There are {:,} bear call spreads".format(bear_calls.shape[0]))
 			print("There are {:,} condors for expiration {}".format((bull_puts.shape[0]*bear_calls.shape[0]), expiration))			
-			# iron_condors, put_condors, call_condors =  self.get_condors(bull_puts, bear_calls, risk_limit, option_chain_obj.underlying_spot)
+			iron_condors, put_condors, call_condors =  self.get_condors(bull_puts, bear_calls, risk_limit, option_chain_obj.underlying_spot)
 
-			# condors = {
-			# 	"iron condors": iron_condors,
-			# 	"bull condors": put_condors,
-			# 	"bear condors": call_condors
-			# }
+			condors = {
+				"iron condors": iron_condors,
+				"bull condors": put_condors,
+				"bear condors": call_condors
+			}
 
-			# self.condors[expiration] = condors 
+			self.condors[expiration] = condors 
 		
 		return self
 
