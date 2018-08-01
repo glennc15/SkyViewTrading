@@ -10,18 +10,19 @@ class CBOEFileParser(object):
 		self.option_chain_obj = OptionChain.OptionChain()
 			
 	def parse_cboe_file(self, cboe_file):
+
 		self.parse_header(cboe_file)
 		self.parse_option_chains(cboe_file)
 		
 		return self.option_chain_obj
 
 	def parse_header(self, cboe_file):
+		quote_data_file = open(cboe_file)
+
 		# read the first 2 lines of the CBOE file
-		quote_data = open(cboe_file)
 		quote_data_head = []
-		quote_data_head.append(quote_data.readline())
-		quote_data_head.append(quote_data.readline())
-		quote_data.close()
+		quote_data_head.append(self.quote_data_file.readline())
+		quote_data_head.append(self.quote_data_file.readline())
 		
 		# ETF CBOE header example:
 		# SPY (SPDR S&P 500 ETF TRUST),278.81,+0.91,
@@ -74,51 +75,77 @@ class CBOEFileParser(object):
 			vol_idx = second_line.index('Vol') + 1
 			self.option_chain_obj.underlying_volume = int(second_line[vol_idx])
 
+		quote_data_file.close()
+
+
 	def parse_option_chains(self, cboe_file):
-		option_chains = pd.read_csv(cboe_file, sep=',', header=2, na_values=' ')
-		# The Strike, Expiration, and Exchange are embedded in the Call Description
-		option_chains['Strike'] = option_chains['Calls'].apply(lambda x: float(x.split(" ")[3]))
-		option_chains['Expiration'] = option_chains['Calls'].apply(lambda x: datetime.datetime.strptime("{} {} {} 16:00".format(x.split(' ')[0], x.split(' ')[1], x.split(' ')[2]), "%Y %b %d %H:%M"))
-		option_chains['Exchange'] = option_chains['Calls'].apply(lambda x: x.split('-')[1][:-1] if len(x.split('-')) > 1 else None)
+		quote_data_file = open(cboe_file)
+
+
+		quote_data_file = close(cboe_file)
+
+
+		# *** Original code to read the options into a pandas dataframe.
+		# option_chains = pd.read_csv(cboe_file, sep=',', header=2, na_values=' ')
+		# # The Strike, Expiration, and Exchange are embedded in the Call Description
+		# option_chains['Strike'] = option_chains['Calls'].apply(lambda x: float(x.split(" ")[3]))
+		# option_chains['Expiration'] = option_chains['Calls'].apply(lambda x: datetime.datetime.strptime("{} {} {} 16:00".format(x.split(' ')[0], x.split(' ')[1], x.split(' ')[2]), "%Y %b %d %H:%M"))
+		# option_chains['Exchange'] = option_chains['Calls'].apply(lambda x: x.split('-')[1][:-1] if len(x.split('-')) > 1 else None)
 		
-		# The option chains are now in one big dataframe. 
-		# Separate the options out by expiration
-		for expiration in set(option_chains['Expiration']):
-			#     print("building options with expiration: {}".format(expiration))
-			this_chain = option_chains[option_chains['Expiration'] == expiration]
+		# # The option chains are now in one big dataframe. 
+		# # Separate the options out by expiration
+		# for expiration in set(option_chains['Expiration']):
+		# 	#     print("building options with expiration: {}".format(expiration))
+		# 	this_chain = option_chains[option_chains['Expiration'] == expiration]
 
-			# Separate calls and puts
-			calls = pd.DataFrame({"Description": this_chain['Calls'], 
-										"Last Sale": this_chain['Last Sale'], 
-										"Net": this_chain['Net'],
-										"Bid": this_chain['Bid'],
-										"Ask": this_chain['Ask'],
-										"Vol": this_chain['Vol'],
-										"Open Int": this_chain['Open Int'],
-										"Strike": this_chain['Strike'], 
-										"Exchange":this_chain['Exchange']})
-			calls['Description'] = calls['Description'].apply(lambda x: x.split('(')[1][:-1] if isinstance(x, str) else None)
-			calls = calls[calls['Description'].notnull()]
+		# 	# Separate calls and puts
+		# 	calls = pd.DataFrame({"Description": this_chain['Calls'], 
+		# 								"Last Sale": this_chain['Last Sale'], 
+		# 								"Net": this_chain['Net'],
+		# 								"Bid": this_chain['Bid'],
+		# 								"Ask": this_chain['Ask'],
+		# 								"Vol": this_chain['Vol'],
+		# 								"Open Int": this_chain['Open Int'],
+		# 								"Strike": this_chain['Strike'], 
+		# 								"Exchange":this_chain['Exchange']})
+		# 	calls['Description'] = calls['Description'].apply(lambda x: x.split('(')[1][:-1] if isinstance(x, str) else None)
+		# 	calls = calls[calls['Description'].notnull()]
 
-			puts = pd.DataFrame({"Description": this_chain['Puts'], 
-										"Last Sale": this_chain['Last Sale.1'], 
-										"Net": this_chain['Net.1'],
-										"Bid": this_chain['Bid.1'],
-										"Ask": this_chain['Ask.1'],
-										"Vol": this_chain['Vol.1'],
-										"Open Int": this_chain['Open Int.1'],
-										"Strike": this_chain['Strike'], 
-										"Exchange":this_chain['Exchange']})
+		# 	puts = pd.DataFrame({"Description": this_chain['Puts'], 
+		# 								"Last Sale": this_chain['Last Sale.1'], 
+		# 								"Net": this_chain['Net.1'],
+		# 								"Bid": this_chain['Bid.1'],
+		# 								"Ask": this_chain['Ask.1'],
+		# 								"Vol": this_chain['Vol.1'],
+		# 								"Open Int": this_chain['Open Int.1'],
+		# 								"Strike": this_chain['Strike'], 
+		# 								"Exchange":this_chain['Exchange']})
 
-			puts['Description'] = puts['Description'].apply(lambda x: x.split('(')[1][:-1] if isinstance(x, str) else None)
-			puts = puts[puts['Description'].notnull()]
+		# 	puts['Description'] = puts['Description'].apply(lambda x: x.split('(')[1][:-1] if isinstance(x, str) else None)
+		# 	puts = puts[puts['Description'].notnull()]
 			
-			self.option_chain_obj.add_option_chains(expiration=expiration, 
-																							calls=calls,
-																							puts=puts)
+		# 	self.option_chain_obj.add_option_chains(expiration=expiration, 
+		# 											calls=calls,
+		# 											puts=puts)
 
+	def get_strike(self, description):
+		return description.split(" ")[3]
 
-try:
-	pass
-except Exception as e:
-	raise e
+	def get_expiration(self, description):
+		return datetime.datetime.strptime("{} {} {} 23:59".format(description.split(' ')[0], description.split(' ')[1], description.split(' ')[2]), "%Y %b %d %H:%M")
+
+	def get_exchange(self, description):
+		exchange_parts = description.split('-')
+		exchange = None
+		if len(exchange_parts) > 1:
+			exchange = exchange_parts[1][:-1] 
+
+		return exchange
+
+	def get_option_description(self, description):
+		option_description = None
+		 
+		if isinstance(description, str):
+			option_description = description.split('(')[1][:-1]
+
+		return option_description
