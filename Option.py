@@ -31,7 +31,7 @@ class Option(object):
       
   def set_positions(self, positions):
     self.positions = positions 
-    if poistions > 0:
+    if positions > 0:
       self.entry_price = -self.ask
     else:
       self.entry_price = self.bid 

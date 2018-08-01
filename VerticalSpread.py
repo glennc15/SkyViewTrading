@@ -1,41 +1,99 @@
 class VerticalSpread:
-	def __init__(self, spread_data_df):
-		self.K1_Ask = spread_data_df["K1_Ask"]
-		self.K1_Bid = spread_data_df["K1_Bid"]
-		self.K1_Description = spread_data_df["K1_Description"]        
-		self.K1_Exchange = spread_data_df["K1_Exchange"]        
-		self.K1_Last_Sale = spread_data_df["K1_Last Sale"]        
-		self.K1_Net = spread_data_df["K1_Net"]        
-		self.K1_Open_Int = spread_data_df["K1_Open Int"]        
-		self.K1_Strike = spread_data_df["K1_Strike"]        
-		self.K1_Vol = spread_data_df["K1_Vol"]
-		self.K1_Sigma = spread_data_df["K1_Sigma"]                
-		self.K1_Delta = spread_data_df["K1_Delta"]                
-		self.K1_Gamma = spread_data_df["K1_Gamma"]                
-		self.K1_Theta = spread_data_df["K1_Theta"]                
-		self.K1_Vega = spread_data_df["K1_Vega"]                
-		self.K1_Entry = spread_data_df["K1_Entry"]
+	def __init__(self, k1_option, k2_option):
 
-		self.K2_Ask = spread_data_df["K2_Ask"]
-		self.K2_Bid = spread_data_df["K2_Bid"]
-		self.K2_Description = spread_data_df["K2_Description"]        
-		self.K2_Exchange = spread_data_df["K2_Exchange"]        
-		self.K2_Last_Sale = spread_data_df["K2_Last Sale"]        
-		self.K2_Net = spread_data_df["K2_Net"]        
-		self.K2_Open_Int = spread_data_df["K2_Open Int"]        
-		self.K2_Strike = spread_data_df["K2_Strike"]        
-		self.K2_Vol = spread_data_df["K2_Vol"]
-		self.K2_Sigma = spread_data_df["K2_Sigma"]                
-		self.K2_Delta = spread_data_df["K2_Delta"]                
-		self.K2_Gamma = spread_data_df["K2_Gamma"]                
-		self.K2_Theta = spread_data_df["K2_Theta"]                
-		self.K2_Vega = spread_data_df["K2_Vega"]                
-		self.K2_Entry = spread_data_df["K2_Entry"]
+		self.k1_option = k1_option
+		self.k2_option = k2_option
 
-		self.max_profit = spread_data_df["Max Profit"]
-		self.max_risk = spread_data_df["Max Risk"]
-		self.break_even = spread_data_df["Break Even"]
-		self.delta = spread_data_df["Delta"]
-		self.gamma = spread_data_df["Gamma"]
-		self.theta = spread_data_df["Theta"]
-		self.vega = spread_data_df["Vega"]
+		self.strike_display = "{}/{}".format(self.k1_option.strike, self.k2_option.strike)
+
+		self.delta = k1_option.positions * k1_option.delta + k2_option.positions * k2_option.delta
+		self.gamma = k1_option.positions * k1_option.gamma + k2_option.positions * k2_option.gamma
+		self.theta = k1_option.positions * k1_option.theta + k2_option.positions * k2_option.theta
+		self.vega = k1_option.positions * k1_option.vega + k2_option.positions * k2_option.vega
+
+	def valid(self):
+		strikes_ok = False
+		break_even_ok = False
+
+		if self.k1_option.strike < self.k2_option.strike:
+			strike_ok = True
+
+		if self.k1_option.strike < self.break_even < self.k2_option.strike:
+			break_even_ok = True
+
+		if (strike_ok & break_even_ok):
+			return True
+		else:
+			return False
+
+class CreditSpread(VerticalSpread):
+	def __init__(self, k1_option, k2_option):
+		super().__init__(k1_option, k2_option)
+		self.max_profit = self.k1_option.entry_price + self.k2_option.entry_price
+		self.max_risk = self.k1_option.strike - self.k2_option.strike + self.max_profit
+
+	def valid(self):
+		strikes_ok = False
+		break_even_ok = False
+		max_profit_ok = False
+		max_risk_ok = False
+
+		if self.k1_option.strike < self.k2_option.strike:
+			strikes_ok = True
+
+		if self.k1_option.strike < self.break_even < self.k2_option.strike:
+			break_even_ok = True
+
+		if self.max_profit > 0:
+			max_profit_ok = True
+
+		if self.max_risk < 0:
+			max_risk_ok = True
+
+		# print("strike_ok: {}".format(strikes_ok))
+		# print("break_even_ok: {}".format(break_even_ok))
+		# print("max_profit_ok: {}".format(max_profit_ok))
+		# print("max_risk_ok: {}".format(max_risk_ok))
+	
+
+		if (max_profit_ok & max_risk_ok & strikes_ok & break_even_ok):
+			return True
+		else:
+			return False
+
+
+class BullSpread:
+	def set_break_even(self):
+		self.break_even = self.k2_option.strike - self.max_profit
+
+
+class BearSpread:
+	def set_break_even(self):
+		self.break_even = self.k1_option.strike + self.max_profit
+
+
+class BullPutSpread(CreditSpread, BullSpread):
+# class BullPutSpread(CreditSpread):
+	def __init__(self, k1_option, k2_option):
+		super().__init__(k1_option.set_positions(1), k2_option.set_positions(-1))
+		
+		self.set_break_even()
+
+		# print(self.strike_display)
+		# print("max_profit: {}".format(self.max_profit))
+		# print("max_risk: {}".format(self.max_risk))
+		# print("break_even: {}".format(self.break_even))
+
+
+class BearCallSpread(CreditSpread, BearSpread):
+# class BullPutSpread(CreditSpread):
+	def __init__(self, k1_option, k2_option):
+		super().__init__(k1_option.set_positions(-1), k2_option.set_positions(1))
+		
+		self.set_break_even()
+
+		# print(self.strike_display)
+		# print("max_profit: {}".format(self.max_profit))
+		# print("max_risk: {}".format(self.max_risk))
+		# print("break_even: {}".format(self.break_even))
+
