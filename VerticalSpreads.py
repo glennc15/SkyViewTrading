@@ -1,6 +1,8 @@
 import numpy as np
 import pandas as pd
 
+from pymongo import MongoClient
+
 import VerticalSpread
 import Option
 '''
@@ -25,12 +27,18 @@ class VerticalSpreads(object):
 		self.vertical_spreads = {}
 		self.pop_added = False
 
+		self.underlying_symbol = None
+		self.timestamp = None
+
 	def build_spreads(self, 
 					option_chain_obj, 
 					bull_put_spreads=True,
 					bull_call_spreads=False,
 					bear_call_spreads=True,
 					bear_put_spreads=False):
+
+		self.underlying_symbol = option_chain_obj.underlying_symbol
+		self.timestamp = option_chain_obj.timestamp
 
 		for expiration, calls, puts in option_chain_obj.items():
 			bull_put_list = []
@@ -151,6 +159,55 @@ class VerticalSpreads(object):
 				k1_payouts = spread.k1_option.set_payout_method(Option.call_option_payout).payouts(projected_returns) 
 				k2_payouts = spread.k2_option.set_payout_method(Option.call_option_payout).payouts(projected_returns) 
 				spread.expected_return = (k1_payouts+k2_payouts).mean()
+
+		return self
+
+	def write_to_mongo(self, mongo_address):
+		'''
+
+		'''
+
+		client = MongoClient(mongo_address)
+
+		for k,v in self.vertical_spreads.items():
+			for spread in self.vertical_spreads[k]["Bull Puts"]:
+				mongo_data = spread.to_dict()
+				mongo_data['symbol'] = self.underlying_symbol
+				mongo_data['timestamp'] = self.timestamp
+				mongo_data['expiration'] = k 
+				mongo_data['type'] = "Bull Put Credit Spread"	
+				
+				client.Spreads.vertical.insert_one(mongo_data)			
+
+			for spread in self.vertical_spreads[k]["Bull Calls"]:
+				mongo_data = spread.to_dict()
+				mongo_data['symbol'] = self.underlying_symbol
+				mongo_data['timestamp'] = self.timestamp
+				mongo_data['expiration'] = k 
+				mongo_data['type'] = "Bull Call Debit Spread"
+
+				client.Spreads.vertical.insert_one(mongo_data)			
+
+
+			for spread in self.vertical_spreads[k]["Bear Puts"]:
+				mongo_data = spread.to_dict()
+				mongo_data['symbol'] = self.underlying_symbol
+				mongo_data['timestamp'] = self.timestamp
+				mongo_data['expiration'] = k 
+				mongo_data['type'] = "Bear Put Debit Spread"
+
+				client.Spreads.vertical.insert_one(mongo_data)			
+
+
+			for spread in self.vertical_spreads[k]["Bear Calls"]:
+				mongo_data = spread.to_dict()
+				mongo_data['symbol'] = self.underlying_symbol
+				mongo_data['timestamp'] = self.timestamp
+				mongo_data['expiration'] = k 
+				mongo_data['type'] = "Bear Call Credit Spread"
+
+				client.Spreads.vertical.insert_one(mongo_data)			
+
 
 		return self
 

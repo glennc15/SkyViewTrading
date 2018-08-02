@@ -13,7 +13,7 @@ class VerticalSpread:
 
 		self.pop = None
 		self.expected_return = None
-		
+
 	def valid(self):
 		strikes_ok = False
 		break_even_ok = False
@@ -63,6 +63,27 @@ class CreditSpread(VerticalSpread):
 			return True
 		else:
 			return False
+
+	def to_dict(self):
+		'''
+
+		Writes class attributs to a dictionary
+
+		'''
+
+		data = {
+			"strike_display": self.strike_display,
+			"max_risk": self.max_risk,
+			"max_profit": self.max_profit,
+			"pop": self.pop,
+			"expected_return": self.expected_return,
+			"delta": self.delta,
+			"gamma": self.gamma,
+			"theta": self.theta,
+			"vega": self.vega
+		}
+
+		return data
 
 
 class BullSpread:
