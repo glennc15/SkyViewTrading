@@ -11,6 +11,9 @@ class VerticalSpread:
 		self.theta = k1_option.positions * k1_option.theta + k2_option.positions * k2_option.theta
 		self.vega = k1_option.positions * k1_option.vega + k2_option.positions * k2_option.vega
 
+		self.pop = None
+		self.expected_return = None
+		
 	def valid(self):
 		strikes_ok = False
 		break_even_ok = False

@@ -1,7 +1,8 @@
 import numpy as np
 import pandas as pd
 
-
+import VerticalSpread
+import Option
 '''
 
 Builds vertical spreads from an OptionChain object.
@@ -32,28 +33,28 @@ class VerticalSpreads(object):
 					bear_put_spreads=False):
 
 		for expiration, calls, puts in option_chain_obj.items():
-			bull_put_spreads_df = None
-			bull_call_spreads_df = None
-			bear_put_spreads_df = None
-			bear_call_spreads_df = None 
+			bull_put_list = []
+			bull_call_list = []
+			bear_put_list = []
+			bear_call_list = [] 
 
 			if bull_call_spreads:
-				bull_call_spreads_df = self.get_bull_calls(calls)
+				bull_call_list = self.get_bull_calls(option_chains=calls, spot=option_chain_obj.underlying_spot)
 
 			if bull_put_spreads:
-				bull_put_spreads_df = self.get_bull_puts(puts)
+				bull_put_list = self.get_bull_puts(option_chains=puts, spot=option_chain_obj.underlying_spot)
 
 			if bear_put_spreads:
-				bear_put_spreads_df = self.get_bear_puts(puts)
+				bear_put_list = self.get_bear_puts(option_chains=puts, spot=option_chain_obj.underlying_spot)
 
 			if bear_call_spreads:
-				bear_call_spreads_df = self.get_bear_calls(calls)
+				bear_call_list = self.get_bear_calls(option_chains=calls, spot=option_chain_obj.underlying_spot)
 
 			spreads_data = {
-				"Bull Puts": bull_put_spreads_df,
-				"Bull Calls": bull_call_spreads_df,
-				"Bear Calls": bear_call_spreads_df,
-				"Bear Puts": bear_put_spreads_df
+				"Bull Puts": bull_put_list,
+				"Bull Calls": bull_call_list,
+				"Bear Calls": bear_call_list,
+				"Bear Puts": bear_put_list
 			}
 
 			self.vertical_spreads[expiration] = spreads_data
@@ -68,17 +69,11 @@ class VerticalSpreads(object):
 		'''
 
 		for k,v in self.vertical_spreads.items():
-			if isinstance(v["Bull Puts"], pd.DataFrame):
-				self.vertical_spreads[k]["Bull Puts"] = self.vertical_spreads[k]["Bull Puts"][self.vertical_spreads[k]["Bull Puts"]['Max Risk'].gt(-risk_limit/100)]
+			self.vertical_spreads[k]["Bull Puts"] = [spread for spread in self.vertical_spreads[k]["Bull Puts"] if (spread.max_risk>=(-risk_limit/100))]
+			self.vertical_spreads[k]["Bull Calls"] = [spread for spread in self.vertical_spreads[k]["Bull Calls"] if (spread.max_risk>=(-risk_limit/100))]
+			self.vertical_spreads[k]["Bear Puts"] = [spread for spread in self.vertical_spreads[k]["Bear Puts"] if (spread.max_risk>=(-risk_limit/100))]
+			self.vertical_spreads[k]["Bear Calls"] = [spread for spread in self.vertical_spreads[k]["Bear Calls"] if (spread.max_risk>=(-risk_limit/100))]
 
-			if isinstance(v["Bull Calls"], pd.DataFrame):
-				self.vertical_spreads[k]["Bull Calls"] = self.vertical_spreads[k]["Bull Calls"][self.vertical_spreads[k]["Bull Calls"]['Max Risk'].gt(-risk_limit/100)]
-
-			if isinstance(v["Bear Puts"], pd.DataFrame):
-				self.vertical_spreads[k]["Bear Puts"] = self.vertical_spreads[k]["Bear Puts"][self.vertical_spreads[k]["Bear Puts"]['Max Risk'].gt(-risk_limit/100)]
-
-			if isinstance(v["Bear Calls"], pd.DataFrame):
-				self.vertical_spreads[k]["Bear Calls"] = self.vertical_spreads[k]["Bear Calls"][self.vertical_spreads[k]["Bear Calls"]['Max Risk'].gt(-risk_limit/100)]
 
 		return self
 
@@ -89,59 +84,73 @@ class VerticalSpreads(object):
 		width of strikes.  Only applies to short spreads (bull puts and bear calls)
 
 		'''
-
-		# max_profit = strike_diff - premium => premium = strike_diff - max_profit 
-
-		for expiration, bull_calls, bull_puts, bear_calls, bear_puts in self.items():
-			if isinstance(bull_calls, pd.DataFrame):
-				# strike_diff = bull_calls["K2 Strike"] - bull_calls["K1 Strike"]
-				# self.vertical_spreads[expiration]['Bull Calls'] = bull_calls[bull_calls["Max Profit"].between(strike_diff*0.2, strike_diff*0.33)]
-				self.vertical_spreads[expiration]['Bull Calls'] = None
-
-			if isinstance(bull_puts, pd.DataFrame):
-				strike_diff = bull_puts["K2_Strike"] - bull_puts["K1_Strike"]
-				self.vertical_spreads[expiration]['Bull Puts'] = bull_puts[bull_puts["Max Profit"].between(strike_diff*0.2, strike_diff*0.33)]
-			
-			if isinstance(bear_calls, pd.DataFrame):
-				strike_diff = bear_calls["K2_Strike"] - bear_calls["K1_Strike"]
-				self.vertical_spreads[expiration]['Bear Calls'] = bear_calls[bear_calls["Max Profit"].between(strike_diff*0.2, strike_diff*0.33)]
-			
-			if isinstance(bear_puts, pd.DataFrame):
-				# strike_diff = bear_puts["K2 Strike"] - bear_puts["K1 Strike"]
-				# self.vertical_spreads[expiration]['Bear Puts'] = bear_puts[bear_puts["Max Profit"].between(strike_diff*0.2, strike_diff*0.33)]
-				self.vertical_spreads[expiration]['Bear Puts'] = None
+		for k,v in self.vertical_spreads.items():			
+			self.vertical_spreads[k]["Bull Puts"] = [spread for spread in self.vertical_spreads[k]["Bull Puts"] if (((spread.k2_option.strike-spread.k1_option.strike)*0.2)<=spread.max_profit<=((spread.k2_option.strike-spread.k1_option.strike)*0.33))]
+			self.vertical_spreads[k]["Bull Calls"] = [spread for spread in self.vertical_spreads[k]["Bull Calls"] if (((spread.k2_option.strike-spread.k1_option.strike)*0.2)<=spread.max_profit<=((spread.k2_option.strike-spread.k1_option.strike)*0.33))]
+			self.vertical_spreads[k]["Bear Puts"] = [spread for spread in self.vertical_spreads[k]["Bear Puts"] if (((spread.k2_option.strike-spread.k1_option.strike)*0.2)<=spread.max_profit<=((spread.k2_option.strike-spread.k1_option.strike)*0.33))]
+			self.vertical_spreads[k]["Bear Calls"] = [spread for spread in self.vertical_spreads[k]["Bear Calls"] if (((spread.k2_option.strike-spread.k1_option.strike)*0.2)<=spread.max_profit<=((spread.k2_option.strike-spread.k1_option.strike)*0.33))]
 
 		return self
 
-	def add_pop(self, pop_calculator):
+	def add_pop(self, pop_calculator, current_spot):
 		'''
 
 		adds POP (percentage of profitability)
 		a POP calculator object must be supplied that has .set_days_til_expiration()
 		and
 
+		'''
+
+		for k,v in self.vertical_spreads.items():
+			pop_calculator.set_days_til_expiration(k)
+
+			for spread in self.vertical_spreads[k]["Bull Puts"]: 
+				spread.pop = pop_calculator.pop(spread.break_even, current_spot)
+
+			for spread in self.vertical_spreads[k]["Bull Calls"]:
+				spread.pop = pop_calculator.pop(spread.break_even, current_spot)
+
+			for spread in self.vertical_spreads[k]["Bear Puts"]:
+				spread.pop = 1 - pop_calculator.pop(spread.break_even, current_spot)
+
+			for spread in self.vertical_spreads[k]["Bear Calls"]:
+				spread.pop = 1 - pop_calculator.pop(spread.break_even, current_spot)
+
+		return self
+
+	def add_expected_return(self, pop_calculator, current_spot):
+		'''
+
+		adds expected return.
+
+		using pop_calculators returns to project spots, kinda hackerish but
+		works for now.
 
 		'''
-		self.pop_added = True
 
-		for expiration, bull_calls, bull_puts, bear_calls, bear_puts in self.items():
-			pop_calculator.set_days_til_expiration(expiration)
+		for k,v in self.vertical_spreads.items():
+			pop_calculator.set_days_til_expiration(k)
+			projected_returns = pop_calculator.returns * current_spot
 
-			if isinstance(bull_calls, pd.DataFrame):
-				pops = bull_calls['Break Even'].apply(lambda x: pop_calculator.pop(x))
-				self.vertical_spreads[expiration]['Bull Calls']['POP'] = pops
-			
-			if isinstance(bull_puts, pd.DataFrame):
-				pops = bull_puts['Break Even'].apply(lambda x: pop_calculator.pop(x))
-				self.vertical_spreads[expiration]['Bull Puts']['POP'] = pops 
-			
-			if isinstance(bear_calls, pd.DataFrame):
-				pops = bear_calls['Break Even'].apply(lambda x: pop_calculator.pop(x))
-				self.vertical_spreads[expiration]['Bear Calls']['POP'] = (1-pops)
-			
-			if isinstance(bear_puts, pd.DataFrame):
-				pops = bear_puts['Break Even'].apply(lambda x: pop_calculator.pop(x))
-				self.vertical_spreads[expiration]['Bear Puts']['POP'] = (1-pops) 
+			for spread in self.vertical_spreads[k]["Bull Puts"]:
+				k1_payouts = spread.k1_option.set_payout_method(Option.put_option_payout).payouts(projected_returns) 
+				k2_payouts = spread.k2_option.set_payout_method(Option.put_option_payout).payouts(projected_returns) 
+				spread.expected_return = (k1_payouts+k2_payouts).mean()
+
+			for spread in self.vertical_spreads[k]["Bull Calls"]:
+				k1_payouts = spread.k1_option.set_payout_method(Option.call_option_payout).payouts(projected_returns) 
+				k2_payouts = spread.k2_option.set_payout_method(Option.call_option_payout).payouts(projected_returns) 
+				spread.expected_return = (k1_payouts+k2_payouts).mean()
+
+			for spread in self.vertical_spreads[k]["Bear Puts"]:
+				k1_payouts = spread.k1_option.set_payout_method(Option.put_option_payout).payouts(projected_returns) 
+				k2_payouts = spread.k2_option.set_payout_method(Option.put_option_payout).payouts(projected_returns) 
+				spread.expected_return = (k1_payouts+k2_payouts).mean()
+
+			for spread in self.vertical_spreads[k]["Bear Calls"]:
+				k1_payouts = spread.k1_option.set_payout_method(Option.call_option_payout).payouts(projected_returns) 
+				k2_payouts = spread.k2_option.set_payout_method(Option.call_option_payout).payouts(projected_returns) 
+				spread.expected_return = (k1_payouts+k2_payouts).mean()
 
 		return self
 
@@ -154,53 +163,28 @@ class VerticalSpreads(object):
 
 		'''
 
-		for expiration, bull_calls, bull_puts, bear_calls, bear_puts in self.items():
-			if isinstance(bull_calls, pd.DataFrame):
-				self.vertical_spreads[expiration]['Bull Calls'] = bull_calls[bull_calls['Break Even'].lt(spot)]
-			
-			if isinstance(bull_puts, pd.DataFrame):
-				self.vertical_spreads[expiration]['Bull Puts'] = bull_puts[bull_puts['Break Even'].lt(spot)]
-			
-			if isinstance(bear_calls, pd.DataFrame):
-				self.vertical_spreads[expiration]['Bear Calls'] = bear_calls[bear_calls['Break Even'].gt(spot)]
-			
-			if isinstance(bear_puts, pd.DataFrame):
-				self.vertical_spreads[expiration]['Bear Puts'] = bear_puts[bear_puts['Break Even'].gt(spot)]
+		for k,v in self.vertical_spreads.items():			
+			self.vertical_spreads[k]["Bull Puts"] = [spread for spread in self.vertical_spreads[k]["Bull Puts"] if (spread.break_even<spot)]
+			self.vertical_spreads[k]["Bull Calls"] = [spread for spread in self.vertical_spreads[k]["Bull Calls"] if (spread.break_even<spot)]
+			self.vertical_spreads[k]["Bear Puts"] = [spread for spread in self.vertical_spreads[k]["Bear Puts"] if (spread.break_even>spot)]
+			self.vertical_spreads[k]["Bear Calls"] = [spread for spread in self.vertical_spreads[k]["Bear Calls"] if (spread.break_even>spot)]
 
 		return self
 
-	def items(self, pretty_df=False):
+	def items(self):
 		''' 
 
 		Iterator
 
 		'''
-		for k,v in self.vertical_spreads.items():
-			bull_calls = None
-			bull_puts = None
-			bear_calls = None
-			bear_puts = None
+		for expiration,v in self.vertical_spreads.items():
+			
+			bull_calls = v["Bull Calls"]
+			bull_puts = v["Bull Puts"]
+			bear_calls = v["Bear Calls"]
+			bear_puts = v["Bear Puts"]
 
-			if pretty_df:
-				if isinstance(v["Bull Calls"], pd.DataFrame):
-					bull_calls = self.pretty_spread_df(v["Bull Calls"])
-
-				if isinstance(v["Bull Puts"], pd.DataFrame):
-					bull_puts = self.pretty_spread_df(v["Bull Puts"])
-
-				if isinstance(v["Bear Calls"], pd.DataFrame):					
-					bear_calls = self.pretty_spread_df(v["Bear Calls"])
-
-				if isinstance(v["Bear Puts"], pd.DataFrame):	
-					bear_puts = self.pretty_spread_df(v["Bear Puts"])
-
-			else:
-				bull_calls = v["Bull Calls"]
-				bull_puts = v["Bull Puts"]
-				bear_calls = v["Bear Calls"]
-				bear_puts = v["Bear Puts"]
-
-			yield (k, bull_calls, bull_puts, bear_calls, bear_puts)
+			yield (expiration, bull_calls, bull_puts, bear_calls, bear_puts)
 
 	# --- Internal methods --- #
 	def build_option_matrix(self, option_chain):
@@ -234,47 +218,21 @@ class VerticalSpreads(object):
 
 		return k2_options
 
-	def get_bull_puts(self, option_chains):
-		option_matrix = self.build_option_matrix(option_chains)
+	def get_bull_puts(self, option_chains, spot):
+		bull_puts = [VerticalSpread.BullPutSpread(k1_option.my_copy(), k2_option.my_copy()) for k1_option in option_chains for k2_option in option_chains if (k1_option.strike<k2_option.strike) and (k1_option.strike<spot)]
+		bull_puts = [bull_put for bull_put in bull_puts if bull_put.valid()]
 
-		option_matrix["K1_Entry"] = -option_matrix["K1_Ask"]
-		option_matrix["K2_Entry"] = option_matrix["K2_Bid"]
-
-		option_matrix['Max Profit'] = option_matrix['K1_Entry'] + option_matrix["K2_Entry"]
-		option_matrix['Max Risk'] = (option_matrix["K1_Strike"] - option_matrix["K2_Strike"]) + option_matrix['Max Profit']
-		option_matrix['Break Even'] = option_matrix["K2_Strike"] - option_matrix['Max Profit']
-		
-		option_matrix['Delta'] = -1*option_matrix['K2_Delta'] + 1*option_matrix['K1_Delta']
-		option_matrix['Gamma'] = -1*option_matrix['K2_Gamma'] + 1*option_matrix['K1_Gamma']
-		option_matrix['Theta'] = -1*option_matrix['K2_Theta'] + 1*option_matrix['K1_Theta']
-		option_matrix['Vega'] = -1*option_matrix['K2_Vega'] + 1*option_matrix['K1_Vega']
-
-		# spreads = self.spreads_clean_up(option_matrix)
-		spreads = option_matrix
-
-		return spreads
+		return bull_puts 
 
 	def get_bull_calls(self, option_chain_obj):
 		pass
 
-	def get_bear_calls(self, option_chains):
-		option_matrix = self.build_option_matrix(option_chains)
+	def get_bear_calls(self, option_chains, spot):
 
-		option_matrix["K1_Entry"] = option_matrix["K1_Bid"]
-		option_matrix["K2_Entry"] = -option_matrix["K2_Ask"]
+		bear_calls = [VerticalSpread.BearCallSpread(k1_option.my_copy(), k2_option.my_copy()) for k1_option in option_chains for k2_option in option_chains if (k1_option.strike<k2_option.strike) and (k2_option.strike>spot)]
+		bear_calls = [bear_call for bear_call in bear_calls if bear_call.valid()]
 
-		option_matrix['Max Profit'] = option_matrix['K1_Entry'] + option_matrix["K2_Entry"]
-		option_matrix['Max Risk'] = (option_matrix["K1_Strike"] - option_matrix["K2_Strike"]) + option_matrix['Max Profit']
-		option_matrix['Break Even'] = option_matrix["K1_Strike"] + option_matrix['Max Profit']
-		
-		option_matrix['Delta'] = -1*option_matrix['K1_Delta'] + 1*option_matrix['K2_Delta']
-		option_matrix['Gamma'] = -1*option_matrix['K1_Gamma'] + 1*option_matrix['K2_Gamma']
-		option_matrix['Theta'] = -1*option_matrix['K1_Theta'] + 1*option_matrix['K2_Theta']
-		option_matrix['Vega'] = -1*option_matrix['K1_Vega'] + 1*option_matrix['K2_Vega']
-
-		spreads = self.spreads_clean_up(option_matrix)
-		
-		return spreads
+		return bear_calls 
 
 	def get_bear_puts(self, option_chain_obj):
 		pass

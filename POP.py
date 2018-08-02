@@ -8,7 +8,7 @@ class POP(object):
 		self.symbol = None
 		self.ohlc_data = None
 		self.days_til_expiration = None
-		self.spots = None
+		self.returns = None
 		
 	def get_ohlc_data(self, symbol):
 		self.symbol = symbol
@@ -40,11 +40,12 @@ class POP(object):
 	def set_return_spots(self, days_til_expiration):
 		# calculate the new projected spots using past returns
 		# returns
-		spots = (self.ohlc_data['Adj Close'] / self.ohlc_data['Adj Close'].shift(days_til_expiration)) * self.ohlc_data['Adj Close'][-1]
+		returns = (self.ohlc_data['Adj Close'] / self.ohlc_data['Adj Close'].shift(days_til_expiration))
 		# some clean up
-		spots = spots[-252:]
+		returns = returns[-252:]
 		
-		self.spots = spots
+		self.returns = returns
 		
-	def pop(self, spot):
-		return self.spots.gt(spot).sum() / self.spots.size
+	def pop(self, price_point, current_spot):
+		spots = self.returns*current_spot
+		return spots.gt(price_point).sum() / float(self.returns.size)

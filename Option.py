@@ -28,7 +28,29 @@ class Option(object):
     self.entry_price = None
 
     self.payoff_method = None
-      
+  
+  def my_copy(self):
+    new_option = Option(
+                  expiration=self.expiration,
+                  strike=self.strike,
+                  bid=self.bid,
+                  ask=self.ask,
+                  description=self.description,
+                  exchange=self.exchange)
+
+    new_option.sigma = self.sigma
+    new_option.delta = self.delta
+    new_option.gamma = self.gamma
+    new_option.vega = self.vega
+    new_option.theta = self.theta
+
+    new_option.positions = self.positions
+    new_option.entry_price = self.entry_price
+
+    new_option.payoff_method = self.payoff_method
+
+    return new_option
+
   def set_positions(self, positions):
     self.positions = positions 
     if positions > 0:
@@ -44,7 +66,7 @@ class Option(object):
     return self
 
   def payouts(self, spots):
-    return self.payout_method(self, spots) 
+    return self.payoff_method(self, spots) 
 
   def valid(self):
     bid_ok = False
@@ -66,24 +88,24 @@ class Option(object):
       return None
 
 def call_option_payout(option_obj, spots):
-  break_even = option_obj.strke + math.fabs(option_obj.entry_price)
+  break_even = option_obj.strike + math.fabs(option_obj.entry_price)
   slope = (-1.0 * option_obj.entry_price) / (break_even - option_obj.strike)
   offset = -1.0 * slope * break_even
 
-  payout = pd.Series(data=None, index=spots.index)
+  payouts = pd.Series(data=None, index=spots.index)
   payouts[spots <= option_obj.strike] = option_obj.entry_price
-  payouts[spots > option_obj.stike] = slope * spots[spots > option_obj.stike] + offset
+  payouts[spots > option_obj.strike] = slope * spots[spots > option_obj.strike] + offset
 
   return payouts
 
 def put_option_payout(option_obj, spots):
-  break_even = option_obj.strke - math.fabs(option_obj.entry_price)
+  break_even = option_obj.strike - math.fabs(option_obj.entry_price)
   slope = (option_obj.entry_price) / (option_obj.strike - break_even)
   offset = -1.0 * slope * break_even
 
-  payout = pd.Series(data=None, index=spots.index)
+  payouts = pd.Series(data=None, index=spots.index)
   payouts[spots >= option_obj.strike] = option_obj.entry_price
-  payouts[spots < option_obj.stike] = slope * spots[spots < option_obj.stike] + offset
+  payouts[spots < option_obj.strike] = slope * spots[spots < option_obj.strike] + offset
 
   return payouts
         
